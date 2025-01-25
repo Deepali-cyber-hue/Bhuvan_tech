@@ -4,3 +4,129 @@ FAST API WILLL TAKE PARAMETER OF DRUG NAME
 TIME SERIES 
 -----------------------------------------
 OR USME EXCEL DAL DENA NEW WALA
+/////////////////////////////////////
+# Import required libraries
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import matplotlib.pyplot as plt
+import warnings
+
+warnings.filterwarnings("ignore")
+
+# Step 1: Load the cleaned dataset
+file_path = '/mnt/data/cleaned_drug_demand_data.csv'
+df = pd.read_csv(file_path)
+
+# Ensure the dataset has a proper date column for time series
+df['Date'] = pd.to_datetime(df['Date'])  # Convert 'Date' column to datetime
+df.set_index('Date', inplace=True)
+
+# Step 2: Filter data dynamically based on user parameters
+def filter_data(drug_name, region, month, day):
+    """
+    Filters the dataset based on the given parameters.
+    """
+    filtered_df = df[
+        (df['Drug'] == drug_name) &
+        (df['Region'] == region) &
+        (df.index.month == month) &
+        (df.index.day == day)
+    ]
+    return filtered_df[['Demand']]
+
+# Step 3: Train-Test Split
+def split_data(filtered_df):
+    """
+    Splits the data into train and test sets.
+    """
+    train_size = int(len(filtered_df) * 0.8)
+    train = filtered_df[:train_size]
+    test = filtered_df[train_size:]
+    return train, test
+
+# Step 4: Train SARIMA Model
+def train_sarima_model(train, p, d, q, P, D, Q, s):
+    """
+    Trains a SARIMA model using the training data.
+    """
+    model = SARIMAX(
+        train['Demand'], 
+        order=(p, d, q),
+        seasonal_order=(P, D, Q, s)
+    )
+    model_fit = model.fit(disp=False)
+    return model_fit
+
+# Step 5: Forecast and Evaluate
+def forecast_and_evaluate(model_fit, test, steps=30):
+    """
+    Forecasts demand and evaluates the model on test data.
+    """
+    forecast = model_fit.forecast(steps=len(test))
+    future_forecast = model_fit.forecast(steps=steps)
+
+    # Evaluation Metrics
+    rmse = np.sqrt(mean_squared_error(test['Demand'], forecast))
+    mae = mean_absolute_error(test['Demand'], forecast)
+    r2 = r2_score(test['Demand'], forecast)
+
+    return forecast, future_forecast, rmse, mae, r2
+
+# Step 6: Visualization
+def plot_results(train, test, forecast, future_forecast, steps):
+    """
+    Plots the results of training, test forecasts, and future forecasts.
+    """
+    plt.figure(figsize=(14, 7))
+    plt.plot(train['Demand'], label='Training Data', color='blue')
+    plt.plot(test['Demand'], label='Test Data', color='green')
+    plt.plot(test.index, forecast, label='Test Forecast', linestyle='--', color='orange')
+    future_dates = pd.date_range(start=test.index[-1], periods=steps + 1, freq='D')[1:]
+    plt.plot(future_dates, future_forecast, label='Future Forecast', linestyle='--', color='red')
+    plt.title('Drug Demand Forecasting')
+    plt.xlabel('Date')
+    plt.ylabel('Demand')
+    plt.legend()
+    plt.show()
+
+# Step 7: Full Workflow
+def run_workflow(drug_name, region, month, day, p, d, q, P, D, Q, s, steps=30):
+    """
+    Runs the full workflow: filtering data, training model, forecasting, and plotting.
+    """
+    # Filter data
+    filtered_df = filter_data(drug_name, region, month, day)
+    if filtered_df.empty:
+        print("No data found for the specified parameters.")
+        return
+    
+    # Train-test split
+    train, test = split_data(filtered_df)
+    
+    # Train SARIMA model
+    model_fit = train_sarima_model(train, p, d, q, P, D, Q, s)
+    
+    # Forecast and evaluate
+    forecast, future_forecast, rmse, mae, r2 = forecast_and_evaluate(model_fit, test, steps)
+    
+    # Print metrics
+    print("Model Performance:")
+    print(f"RMSE: {rmse:.2f}")
+    print(f"MAE: {mae:.2f}")
+    print(f"R^2: {r2:.2f}")
+    
+    # Plot results
+    plot_results(train, test, forecast, future_forecast, steps)
+
+# Example: Run the workflow
+run_workflow(
+    drug_name='DrugA',  # Replace with a valid drug name
+    region='North',     # Replace with a valid region
+    month=1,            # Replace with a valid month
+    day=1,              # Replace with a valid day
+    p=1, d=1, q=1,      # SARIMA parameters
+    P=1, D=1, Q=1, s=12,  # Seasonal SARIMA parameters
+    steps=30            # Number of steps for future forecasting
+)
