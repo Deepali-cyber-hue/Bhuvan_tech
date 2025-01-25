@@ -1,368 +1,48 @@
-Below are minimal code snippets showing how you can:
+DATA CLEANING -
 
-Read the Excel dataset,
-Store it into a SQLite DB (ETL),
-Train a forecasting model (example: Prophet) in a Jupyter notebook,
-Expose the model via FastAPI, and
-Build a simple Streamlit UI.
-All explanations are kept to a minimum. Adjust file paths, column names, or model parameters as needed.
-
-1) etl.py (Load Excel into SQLite)
-python
-Copy
-Edit
-import pandas as pd
-import sqlite3
-
-def load_excel_to_sqlite(excel_file, db_file="drug_forecast.db"):
-    df = pd.read_excel(excel_file, parse_dates=["Date"])
-    conn = sqlite3.connect(db_file)
-    df.to_sql("drug_data", conn, if_exists="replace", index=False)
-    conn.close()
-
-if __name__ == "__main__":
-    load_excel_to_sqlite("drug_data.xlsx")
-2) modeling.ipynb (Train Forecast Model with Prophet)
-python
-Copy
-Edit
-import pandas as pd
-import sqlite3
-from prophet import Prophet
-import numpy as np
-
-# Read from DB
-conn = sqlite3.connect("drug_forecast.db")
-df = pd.read_sql_query("SELECT * FROM drug_data", conn)
-conn.close()
-
-# Basic cleaning
-df["Demand"] = pd.to_numeric(df["Demand"], errors="coerce")
-df["Demand"] = df["Demand"].fillna(method="ffill")
-df = df.dropna(subset=["Demand"])
-df = df.sort_values("Date")
-
-# Create a column for sentiment (example)
-from textblob import TextBlob
-
-def sentiment_score(text):
-    return TextBlob(str(text)).sentiment.polarity
-
-df["combined_text"] = (
-    df["Event"].fillna("") + " " + 
-    df["Market_News"].fillna("") + " " + 
-    df["Press_Release"].fillna("")
-)
-df["text_sentiment"] = df["combined_text"].apply(sentiment_score)
-
-# Prophet with extra regressor
-df_prophet = df[["Date", "Demand", "text_sentiment"]].copy()
-df_prophet.columns = ["ds", "y", "sentiment"]
-
-m = Prophet()
-m.add_regressor("sentiment")
-
-# Train/test split
-split_idx = int(len(df_prophet)*0.8)
-train_df = df_prophet.iloc[:split_idx]
-test_df = df_prophet.iloc[split_idx:]
-
-m.fit(train_df)
-
-future = m.make_future_dataframe(periods=len(test_df))
-future["sentiment"] = test_df["sentiment"].values
-forecast = m.predict(future)
-
-# Evaluate
-from sklearn.metrics import mean_absolute_error
-mae = mean_absolute_error(test_df["y"], forecast["yhat"].tail(len(test_df)))
-print("MAE:", mae)
-
-# Save model
-import joblib
-joblib.dump(m, "prophet_model.joblib")
-3) main.py (FastAPI for Serving Forecast)
-python
-Copy
-Edit
-from fastapi import FastAPI
-from pydantic import BaseModel
-import sqlite3
-import pandas as pd
-import joblib
-import datetime
-
-app = FastAPI()
-model = joblib.load("prophet_model.joblib")
-
-class ForecastRequest(BaseModel):
-    periods: int
-
-@app.post("/forecast")
-def forecast_demand(req: ForecastRequest):
-    # Load latest data
-    conn = sqlite3.connect("drug_forecast.db")
-    df = pd.read_sql_query("SELECT * FROM drug_data", conn)
-    conn.close()
-    
-    # Minimal re-processing
-    df["Date"] = pd.to_datetime(df["Date"])
-    df = df.sort_values("Date")
-    df["Demand"] = pd.to_numeric(df["Demand"], errors="coerce").fillna(method="ffill")
-    df["combined_text"] = (df["Event"].fillna("") + " " + df["Market_News"].fillna("") + " " + df["Press_Release"].fillna(""))
-    
-    from textblob import TextBlob
-    df["text_sentiment"] = df["combined_text"].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
-    
-    # Prepare future dataframe
-    df_prophet = df[["Date", "Demand", "text_sentiment"]]
-    df_prophet.columns = ["ds", "y", "sentiment"]
-    
-    last_date = df_prophet["ds"].max()
-    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=req.periods)
-    future_df = pd.DataFrame({"ds": future_dates, "sentiment": [0]*req.periods})
-    
-    full_df = pd.concat([df_prophet[["ds","y","sentiment"]], future_df], ignore_index=True)
-    forecast = model.predict(full_df)
-    
-    results = forecast.tail(req.periods)[["ds","yhat"]].to_dict("records")
-    return {"forecast": results}
-4) streamlit_app.py (Simple Streamlit Frontend)
-python
-Copy
-Edit
-import streamlit as st
-import requests
-import pandas as pd
-from datetime import datetime
-
-st.title("Drug Demand Forecast App")
-
-periods = st.number_input("Forecast Days", min_value=1, max_value=60, value=7)
-
-if st.button("Get Forecast"):
-    resp = requests.post("http://localhost:8000/forecast", json={"periods": periods})
-    if resp.status_code == 200:
-        data = resp.json()
-        df_forecast = pd.DataFrame(data["forecast"])
-        st.write(df_forecast)
-        st.line_chart(df_forecast.set_index("ds")["yhat"])
-    else:
-        st.error("Error fetching data")
-Usage Steps
-Run etl.py to load your Excel into drug_forecast.db.
-Open modeling.ipynb and run all cells to train and save the Prophet model.
-Start FastAPI: uvicorn main:app --reload
-Start Streamlit: streamlit run streamlit_app.py
-Access Streamlit UI, enter forecast days, see results.
-
-
-................................................................................................................
-BEST ALGORITHM - 
-
-
-Below is a minimal code sample demonstrating a recommended (“best”) approach for each major step in this pipeline—data ingestion, NLP (using a modern Transformer-based sentiment approach), an advanced time-series model (Prophet) for forecasting, and basic inventory optimization calculations. Adjust file paths, column names, hyperparameters, etc. as needed.
-
-1) ETL (Excel → SQLite)
-
-import pandas as pd
-import sqlite3
-
-def load_excel_to_sqlite(excel_file, db_file="drug_forecast.db"):
-    df = pd.read_excel(excel_file, parse_dates=["Date"])
-    conn = sqlite3.connect(db_file)
-    df.to_sql("drug_data", conn, if_exists="replace", index=False)
-    conn.close()
-
-if __name__ == "__main__":
-    load_excel_to_sqlite("drug_data.xlsx")
-Best Practice: Keep your data in a central DB for consistent access. SQLite is lightweight; for production, use MySQL/Postgres.
-
-2) Modeling (Jupyter Notebook Example)
-A. Data Preparation & Advanced NLP
-We’ll use Hugging Face Transformers for sentiment extraction on text fields (Event, Market_News, Press_Release). This is generally more robust than classical approaches.
-
-
-
-import sqlite3
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import LabelEncoder
 
-# 1. Load
-conn = sqlite3.connect("drug_forecast.db")
-df = pd.read_sql_query("SELECT * FROM drug_data", conn)
-conn.close()
+# Load the dataset
+data_path = 'drug_demand_forecasting.xlsx'  # Path to the dataset
+data = pd.read_excel(data_path)
 
-# 2. Clean numeric column
-df["Demand"] = pd.to_numeric(df["Demand"], errors="coerce").fillna(method="ffill")
+# Step 1: Data Cleaning
+# Handling missing values
+data['Demand'].fillna(data['Demand'].median(), inplace=True)  # Replace NaN with median
+data['Prescription_Volume'].fillna(data['Prescription_Volume'].median(), inplace=True)
+data['Region'].fillna(data['Region'].mode()[0], inplace=True)
 
-# 3. Combine text columns
-df["combined_text"] = (
-    df["Event"].fillna("") + " " +
-    df["Market_News"].fillna("") + " " +
-    df["Press_Release"].fillna("")
-)
+# Drop rows with excessive missing data
+data.dropna(subset=['Event', 'Market_News', 'Press_Release'], inplace=True)
 
-# 4. Transformer-based sentiment
-!pip install transformers  # ensure installed
-from transformers import pipeline
+# Step 2: Encoding categorical variables
+le = LabelEncoder()
+data['Region'] = le.fit_transform(data['Region'])
+data['Drug'] = le.fit_transform(data['Drug'])
+data['Category'] = le.fit_transform(data['Category'])
+data['Drug_Type'] = le.fit_transform(data['Drug_Type'])
 
-sentiment_pipeline = pipeline("sentiment-analysis")  # uses default model (DistilBERT)
+# Step 3: Feature Engineering
+# Creating time-based features
+data['Date'] = pd.to_datetime(data['Date'])
+data['Year'] = data['Date'].dt.year
+data['Month'] = data['Date'].dt.month
+data['Weekday'] = data['Date'].dt.weekday
 
-def get_sentiment_score(text):
-    # For large data, batch-process in practice
-    result = sentiment_pipeline(text[:500])  # limit to 500 chars if text is huge
-    # DistilBERT returns "LABEL_0 or LABEL_1" depending on the model, or "POSITIVE/NEGATIVE"
-    # We'll map "POSITIVE" → 1, "NEGATIVE" → -1, "NEUTRAL" → 0 if present
-    label = result[0]["label"]
-    score = result[0]["score"] if label == "POSITIVE" else -result[0]["score"]
-    return score
+# Lag features for time-series modeling
+data['Demand_Lag_1'] = data['Demand'].shift(1)
+data['Demand_Lag_7'] = data['Demand'].shift(7)  # Weekly lag
 
-df["text_sentiment"] = df["combined_text"].apply(get_sentiment_score)
+# Rolling features for smoothing
+data['Demand_Rolling_Mean_7'] = data['Demand'].rolling(window=7).mean()
 
-# 5. Sort by Date
-df["Date"] = pd.to_datetime(df["Date"])
-df = df.sort_values("Date").reset_index(drop=True)
+# Drop rows with NaN values introduced by lagging
+data.dropna(inplace=True)
 
-df.head()
-B. Time-Series Forecasting with Prophet
-Prophet is very effective for complex seasonality, trends, and it allows adding regressors (like text_sentiment).
+# Step 4: Save the cleaned data
+cleaned_data_path = 'cleaned_drug_demand_data.csv'
+data.to_csv(cleaned_data_path, index=False)
 
-
-from prophet import Prophet
-from sklearn.metrics import mean_absolute_error, mean_squared_error
-
-# Keep relevant columns
-df_prophet = df[["Date", "Demand", "text_sentiment"]].dropna()
-df_prophet.columns = ["ds", "y", "sentiment"]
-
-m = Prophet(yearly_seasonality=True, weekly_seasonality=True)
-m.add_regressor("sentiment")
-
-# Train/Test Split
-split_idx = int(len(df_prophet)*0.8)
-train_df = df_prophet.iloc[:split_idx]
-test_df = df_prophet.iloc[split_idx:]
-
-m.fit(train_df)
-
-# Forecast for the test period length
-future_test = m.make_future_dataframe(periods=len(test_df))
-future_test["sentiment"] = test_df["sentiment"].values
-forecast = m.predict(future_test)
-
-y_true = test_df["y"].values
-y_pred = forecast["yhat"].tail(len(test_df)).values
-
-mae = mean_absolute_error(y_true, y_pred)
-rmse = mean_squared_error(y_true, y_pred, squared=False)
-print("Prophet MAE:", mae)
-print("Prophet RMSE:", rmse)
-
-# Save the model
-import joblib
-joblib.dump(m, "prophet_model.joblib")
-3) Inventory Optimization (Snippet)
-Use a simple formula for Safety Stock and Reorder Point. Here we assume a service level “z” factor of ~1.65 for ~95% fill rate.
-
-
-def calculate_inventory_params(daily_demand_series, lead_time=7, z=1.65):
-    # daily_demand_series: historical or forecasted demand
-    avg_demand = np.mean(daily_demand_series)
-    demand_std = np.std(daily_demand_series)
-    safety_stock = z * demand_std * np.sqrt(lead_time)
-    reorder_point = (avg_demand * lead_time) + safety_stock
-    return safety_stock, reorder_point
-
-# Example usage with the training data's demand
-safety, rop = calculate_inventory_params(train_df["y"])
-print("Safety Stock:", safety)
-print("Reorder Point:", rop)
-4) FastAPI (Serving the Model)
-
-# main.py
-from fastapi import FastAPI
-from pydantic import BaseModel
-import joblib
-import pandas as pd
-import sqlite3
-from transformers import pipeline
-
-app = FastAPI()
-model = joblib.load("prophet_model.joblib")
-sentiment_pipeline = pipeline("sentiment-analysis")
-
-class ForecastRequest(BaseModel):
-    periods: int
-
-@app.post("/forecast")
-def forecast_demand(req: ForecastRequest):
-    conn = sqlite3.connect("drug_forecast.db")
-    df = pd.read_sql_query("SELECT * FROM drug_data", conn)
-    conn.close()
-    
-    df["Date"] = pd.to_datetime(df["Date"])
-    df = df.sort_values("Date").reset_index(drop=True)
-    df["Demand"] = pd.to_numeric(df["Demand"], errors="coerce").fillna(method="ffill")
-    df["combined_text"] = (df["Event"].fillna("") + " " + 
-                           df["Market_News"].fillna("") + " " + 
-                           df["Press_Release"].fillna(""))
-    
-    def get_sentiment_score(text):
-        result = sentiment_pipeline(text[:500])
-        label = result[0]["label"]
-        score = result[0]["score"] if label == "POSITIVE" else -result[0]["score"]
-        return score
-
-    df["text_sentiment"] = df["combined_text"].apply(get_sentiment_score)
-
-    df_prophet = df[["Date","Demand","text_sentiment"]].dropna()
-    df_prophet.columns = ["ds","y","sentiment"]
-    last_date = df_prophet["ds"].max()
-
-    future_dates = pd.date_range(last_date + pd.Timedelta(days=1), 
-                                 periods=req.periods, freq="D")
-    future_df = pd.DataFrame({"ds": future_dates, "sentiment": 0})
-    full_df = pd.concat([df_prophet, future_df], ignore_index=True)
-    forecast = model.predict(full_df)
-    fc = forecast.tail(req.periods)[["ds","yhat"]].to_dict("records")
-    return {"forecast": fc}
-5) Streamlit (Minimal UI)
-
-# streamlit_app.py
-import streamlit as st
-import requests
-import pandas as pd
-
-st.title("Drug Demand Forecast & Inventory Optimization")
-
-periods = st.number_input("Forecast Days", min_value=1, max_value=60, value=7)
-
-if st.button("Get Forecast"):
-    resp = requests.post("http://localhost:8000/forecast", json={"periods": periods})
-    if resp.status_code == 200:
-        data = resp.json()
-        df_fc = pd.DataFrame(data["forecast"])
-        st.write("Forecast Results")
-        st.dataframe(df_fc)
-        st.line_chart(df_fc.set_index("ds")["yhat"])
-    else:
-        st.error("Error fetching forecast.")
-Run with:
-
-uvicorn main:app --reload
-streamlit run streamlit_app.py
-You now have an end-to-end pipeline with:
-
-Transformer-based sentiment (best for NLP).
-Prophet (robust time-series model).
-Basic Inventory Optimization snippet.
-FastAPI for serving predictions.
-Streamlit for a simple UI.
-
-
-
-
-
-
-
+print(f"Data cleaning completed. Cleaned data saved to {cleaned_data_path}.")
