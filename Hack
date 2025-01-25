@@ -1,3 +1,4 @@
 nhiiiiii phle jupyter notebook ka coding 
 bhejo modeling ka
 jisme time series use krke prediction and forcasting dono ho
+or plzz cleaned xcel file dalkr bolo usse aese hi mt krte rho
