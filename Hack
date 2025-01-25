@@ -1,1 +1,85 @@
-usko bolo ki give fast API FOR THIS
+from fastapi import FastAPI, Query
+from pydantic import BaseModel
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+import joblib
+
+# Initialize FastAPI app
+app = FastAPI()
+
+# Load the dataset
+df_cleaned = pd.read_csv('cleaned_drug_demand_data.csv')
+df_cleaned['Date'] = pd.date_range(start='2020-01-01', periods=len(df_cleaned), freq='D')
+df_cleaned.set_index('Date', inplace=True)
+
+# Split the dataset into training and test sets
+train_size = int(len(df_cleaned) * 0.8)
+train_data = df_cleaned['Demand'][:train_size]
+test_data = df_cleaned['Demand'][train_size:]
+
+# Define input model for SARIMA parameters
+class SARIMAInput(BaseModel):
+    p: int = Query(1, description="Order of AR component")
+    d: int = Query(1, description="Order of differencing")
+    q: int = Query(1, description="Order of MA component")
+    P: int = Query(1, description="Seasonal order of AR component")
+    D: int = Query(1, description="Seasonal order of differencing")
+    Q: int = Query(1, description="Seasonal order of MA component")
+    s: int = Query(12, description="Seasonal period")
+    steps: int = Query(30, description="Number of steps to forecast")
+
+# Endpoint for SARIMA Forecasting
+@app.post("/forecast/")
+def forecast(input_data: SARIMAInput):
+    """
+    Perform demand forecasting using SARIMA.
+    """
+    # Fit the SARIMA model
+    model_sarima = SARIMAX(
+        train_data,
+        order=(input_data.p, input_data.d, input_data.q),
+        seasonal_order=(input_data.P, input_data.D, input_data.Q, input_data.s),
+    )
+    model_sarima_fit = model_sarima.fit(disp=False)
+
+    # Forecast future demand
+    forecast = model_sarima_fit.forecast(steps=input_data.steps)
+    forecast_dates = pd.date_range(start=df_cleaned.index[-1], periods=input_data.steps + 1, freq='D')[1:]
+
+    # Format the forecast results
+    forecast_results = {
+        "Forecast": {str(date): round(value, 2) for date, value in zip(forecast_dates, forecast)}
+    }
+    return forecast_results
+
+# Endpoint for SARIMA Prediction on Test Data
+@app.get("/predict/")
+def predict(input_data: SARIMAInput):
+    """
+    Perform prediction on test data using SARIMA.
+    """
+    # Fit the SARIMA model
+    model_sarima = SARIMAX(
+        train_data,
+        order=(input_data.p, input_data.d, input_data.q),
+        seasonal_order=(input_data.P, input_data.D, input_data.Q, input_data.s),
+    )
+    model_sarima_fit = model_sarima.fit(disp=False)
+
+    # Predict test data
+    forecast_test = model_sarima_fit.forecast(steps=len(test_data))
+    test_results = {
+        "Test Predictions": {
+            str(date): round(value, 2) for date, value in zip(test_data.index, forecast_test)
+        }
+    }
+    return test_results
+
+# Root endpoint
+@app.get("/")
+def root():
+    """
+    Root endpoint to check API status.
+    """
+    return {"message": "SARIMA Demand Forecasting and Prediction API is running."}
