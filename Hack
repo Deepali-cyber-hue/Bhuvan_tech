@@ -11,3 +11,9 @@ Prediction and Forecast:
 
 and write that create a jupyternotebook code so that it can deploy in fast api later -- do modelling in this way
 
+write key objective should be  this
+
+Accurate Drug Demand Forecasting: Predict future drug demand at both macro and micro
+levels.
+2. Inventory Optimization: Using demand forecasts to calculate optimal inventory levels, reorder
+points, and safety stock, ensuring drugs are available when needed without overstocking.
