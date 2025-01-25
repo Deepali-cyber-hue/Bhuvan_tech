@@ -1,1 +1,56 @@
-write prompt- give code for fastAPI for this previous model ARIMA
+from fastapi import FastAPI, Query
+from pydantic import BaseModel
+import pandas as pd
+from statsmodels.tsa.arima.model import ARIMA
+import joblib
+
+# Create FastAPI app
+app = FastAPI()
+
+# Load the dataset and train ARIMA model (pre-trained)
+df_cleaned = pd.read_csv('cleaned_drug_demand_data.csv')
+df_cleaned['Date'] = pd.date_range(start='2020-01-01', periods=len(df_cleaned), freq='D')
+df_cleaned.set_index('Date', inplace=True)
+
+# Train ARIMA model
+train_size = int(len(df_cleaned) * 0.8)
+train_data = df_cleaned['Demand'][:train_size]
+model_arima = ARIMA(train_data, order=(1, 1, 1))
+model_arima_fit = model_arima.fit()
+
+# Save the model for deployment
+joblib.dump(model_arima_fit, 'arima_model.pkl')
+
+
+# API to forecast demand
+@app.get("/forecast/")
+def forecast_demand(days: int = Query(30, description="Number of days to forecast")):
+    """
+    Forecast drug demand for the specified number of days.
+    Args:
+        days (int): Number of future days to forecast (default is 30).
+    Returns:
+        dict: Forecasted demand for the specified number of days.
+    """
+    # Load the trained ARIMA model
+    model = joblib.load('arima_model.pkl')
+
+    # Generate forecast
+    forecast = model.forecast(steps=days)
+    forecast_dates = pd.date_range(start=df_cleaned.index[-1], periods=days + 1, freq='D')[1:]
+
+    # Format the results
+    forecast_results = {
+        "Forecast": {str(date): round(value, 2) for date, value in zip(forecast_dates, forecast)}
+    }
+
+    return forecast_results
+
+
+# Root endpoint
+@app.get("/")
+def root():
+    """
+    Root endpoint to check API status.
+    """
+    return {"message": "ARIMA Forecasting API is running. Use /forecast endpoint to generate forecasts."}
