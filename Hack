@@ -46,3 +46,13 @@ cleaned_data_path = 'cleaned_drug_demand_data.csv'
 data.to_csv(cleaned_data_path, index=False)
 
 print(f"Data cleaning completed. Cleaned data saved to {cleaned_data_path}.")
+
+
+---[# Steps;
+
+1. Cleaning data - provide code for this
+2. appropriate algorithm for problem statement
+3. code for demand optimum inventory according to data set given provide code
+4. use NLP for Preprocess textual and check the influence factors for drug demand
+
+do data modelling having all three feature in jupyter notebook so that ir can further use fin fast api and streamlit] write this promt
