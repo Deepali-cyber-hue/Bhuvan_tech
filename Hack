@@ -1,7 +1,4 @@
-USKO BOLO KI CREATE A TIME SERIES MODEL WHERE
-FAST API WILLL TAKE PARAMETER OF DRUG NAME
-, MONTH OF THAT DRUG, REGION, AND DAY --- AND CREATE A MODEL IN JUPYTER NOTE BOOK TO CREATE A FORCASTING AND PREDICTIVE MODEL VIA THESE PARAMETER USING
-TIME SERIES 
+hua ?
 -----------------------------------------
 OR USME EXCEL DAL DENA NEW WALA//////////////////////////////////////////////kab tak hai yai kitna time legega or \\\\
 /////////////////////////////////////
