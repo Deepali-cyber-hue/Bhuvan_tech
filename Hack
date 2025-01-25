@@ -1,3 +1,5 @@
 send something which do fit 
 plzzz simple model hi ho bus 
 and it's must to use time series model only
+
+write a model in such a way that fast api should take all parameters from users and them do demand forcasting 
