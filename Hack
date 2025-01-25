@@ -1,1 +1,41 @@
-acha data set dalo clean wala uspr or bolo ki do demand forcastion for this using time series model 
+import pandas as pd
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+import matplotlib.pyplot as plt
+
+# Load the cleaned dataset
+cleaned_data_path = 'cleaned_drug_demand_data.csv'  # Update with your file path if needed
+df_cleaned = pd.read_csv(cleaned_data_path)
+
+# Ensure the data has a proper time column
+# Adding a simulated 'Date' column for time-series purposes (update this if a real Date column exists)
+df_cleaned['Date'] = pd.date_range(start='2020-01-01', periods=len(df_cleaned), freq='D')
+df_time_series = df_cleaned[['Date', 'Demand']].sort_values(by='Date')
+
+# Set the 'Date' column as the index for time series analysis
+df_time_series.set_index('Date', inplace=True)
+
+# Fit the Exponential Smoothing model
+model = ExponentialSmoothing(
+    df_time_series['Demand'], 
+    trend='add', 
+    seasonal='add', 
+    seasonal_periods=365
+)
+model_fit = model.fit()
+
+# Forecast the next 30 days
+forecast = model_fit.forecast(30)
+
+# Plot the actual data and forecasted values
+plt.figure(figsize=(12, 6))
+plt.plot(df_time_series['Demand'], label='Actual Demand', color='blue')
+plt.plot(forecast, label='Forecasted Demand', linestyle='--', color='orange')
+plt.title('Drug Demand Forecasting (Exponential Smoothing)')
+plt.xlabel('Date')
+plt.ylabel('Demand')
+plt.legend()
+plt.show()
+
+# Print the last 10 forecasted values
+print("Last 10 Forecasted Values:")
+print(forecast.tail(10))
