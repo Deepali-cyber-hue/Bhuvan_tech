@@ -1,3 +1,5 @@
+updated------------
+
 # Import necessary libraries
 import pandas as pd
 import numpy as np
@@ -46,7 +48,26 @@ model_rf = RandomForestRegressor(n_estimators=100, random_state=42)
 model_rf.fit(X_train, y_train)
 forecast_rf = model_rf.predict(X_test)
 
-# Step 5: Evaluation Metrics
+# Step 5: Inventory Optimization
+# Define lead time (e.g., 5 days) and service level (e.g., 95%)
+lead_time = 5
+z_score = 1.96  # For 95% service level
+
+# Calculate average daily demand and standard deviation
+avg_daily_demand = y_train.mean()
+std_dev_demand = y_train.std()
+
+# Calculate Safety Stock and Reorder Point (ROP)
+safety_stock = z_score * (std_dev_demand * np.sqrt(lead_time))
+reorder_point = (avg_daily_demand * lead_time) + safety_stock
+
+print(f"Inventory Optimization Metrics:")
+print(f"Average Daily Demand: {avg_daily_demand:.2f}")
+print(f"Standard Deviation of Demand: {std_dev_demand:.2f}")
+print(f"Safety Stock: {safety_stock:.2f}")
+print(f"Reorder Point (ROP): {reorder_point:.2f}")
+
+# Step 6: Evaluation Metrics
 # Time-Series Model Metrics
 metrics_ts = {
     'RMSE': np.sqrt(mean_squared_error(y[-30:], forecast_ts)),
@@ -61,31 +82,11 @@ metrics_rf = {
     'R^2': r2_score(y_test, forecast_rf)
 }
 
-# Step 6: Feature Importance (Random Forest)
+# Step 7: Feature Importance (Random Forest)
 feature_importances = pd.DataFrame({
     'Feature': X_train.columns,
     'Importance': model_rf.feature_importances_
 }).sort_values(by='Importance', ascending=False)
-
-# Step 7: Plotting Results
-# Plot Exponential Smoothing Forecast
-plt.figure(figsize=(12, 6))
-plt.plot(df_time_series['Demand'], label='Actual Demand', color='blue')
-plt.plot(forecast_ts, label='Forecast (Exponential Smoothing)', linestyle='--', color='orange')
-plt.title('Drug Demand Forecasting (Exponential Smoothing)')
-plt.xlabel('Date')
-plt.ylabel('Demand')
-plt.legend()
-plt.show()
-
-# Plot Feature Importance (Random Forest)
-plt.figure(figsize=(10, 6))
-plt.barh(feature_importances['Feature'][:10], feature_importances['Importance'][:10])
-plt.title('Top 10 Feature Importances (Random Forest)')
-plt.xlabel('Importance')
-plt.ylabel('Feature')
-plt.gca().invert_yaxis()
-plt.show()
 
 # Step 8: Compare Models
 metrics_summary = pd.DataFrame({
@@ -96,17 +97,15 @@ metrics_summary = pd.DataFrame({
 })
 
 # Display Results
-print("Model Comparison Metrics:")
+print("\nModel Comparison Metrics:")
 print(metrics_summary)
 
 print("\nFeature Importance (Random Forest):")
 print(feature_importances.head(10))
 
-# Step 9: Save Models for Deployment
+# Save Models for Deployment
 import joblib
 joblib.dump(model_ts_fit, 'exponential_smoothing_model.pkl')
 joblib.dump(model_rf, 'random_forest_model.pkl')
 
 print("\nModels saved: 'exponential_smoothing_model.pkl' and 'random_forest_model.pkl'")
-
-
