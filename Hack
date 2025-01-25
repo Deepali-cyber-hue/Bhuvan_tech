@@ -56,6 +56,15 @@ print(f"Data cleaning completed. Cleaned data saved to {cleaned_data_path}.")
 4. use NLP for Preprocess textual and check the influence factors for drug demand
 
 do data modelling having all three feature in jupyter notebook so that ir can further use fin fast api and streamlit] write this promt
+
+
+
+
+
+ye dekha rha h error correct krke bhejo code
+
+
+
 [TypeError                                 Traceback (most recent call last)
 Cell In[1], line 11
       7 data = pd.read_excel(data_path)
