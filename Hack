@@ -1,7 +1,7 @@
 hua ?
 -----------------------------------------
-OR USME EXCEL DAL DENA NEW WALA//////////////////////////////////////////////kab tak hai yai kitna time legega or \\\\
-/////////////////////////////////////
+
+
 # Import required libraries
 import pandas as pd
 import numpy as np
