@@ -58,4 +58,6 @@ Prediction and Forecast:
 • Solution should take account Seasonality, Trends and Stationary effect for forecast.
 • Develop at least two different models.
 • Evaluate and compare model performance using relevant metrics.
-• Identify the most important features contributing model.
+• Identify the most important features contributing model....................or yai tho kiya hai abhi 
+
+
