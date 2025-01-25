@@ -50,3 +50,24 @@ encoded_df.drop(columns=['Date', 'Drug', 'Sides', 'Event', 'Market_News', 'Press
 encoded_df.to_csv('cleaned_drug_demand_data.csv', index=False)
 
 print("Data cleaning complete. Cleaned data saved as 'cleaned_drug_demand_data.csv'.")
+
+
+
+showing this error - please update
+
+/var/folders/tz/bzpxrq3s5pq07q_tx0q6gnkc0000gn/T/ipykernel_30314/596143333.py:9: FutureWarning: Downcasting behavior in `replace` is deprecated and will be removed in a future version. To retain the old behavior, explicitly call `result.infer_objects(copy=False)`. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  df.replace('.', np.nan, inplace=True)
+/var/folders/tz/bzpxrq3s5pq07q_tx0q6gnkc0000gn/T/ipykernel_30314/596143333.py:18: FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
+The behavior will change in pandas 3.0. This inplace method will never work because the intermediate object on which we are setting values always behaves as a copy.
+
+For example, when doing 'df[col].method(value, inplace=True)', try using 'df.method({col: value}, inplace=True)' or df[col] = df[col].method(value) instead, to perform the operation inplace on the original object.
+
+
+  df[col].fillna(df[col].median(), inplace=True)
+/var/folders/tz/bzpxrq3s5pq07q_tx0q6gnkc0000gn/T/ipykernel_30314/596143333.py:23: FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
+The behavior will change in pandas 3.0. This inplace method will never work because the intermediate object on which we are setting values always behaves as a copy.
+
+For example, when doing 'df[col].method(value, inplace=True)', try using 'df.method({col: value}, inplace=True)' or df[col] = df[col].method(value) instead, to perform the operation inplace on the original object.
+
+
+  df[col].fillna(df[col].mode()[0], inplace=True)
