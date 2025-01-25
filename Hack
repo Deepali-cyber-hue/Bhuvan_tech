@@ -55,6 +55,10 @@ print("Data cleaning complete. Cleaned data saved as 'cleaned_drug_demand_data.c
 
 showing this error - please update
 
+
+
+krdo yrr
+
 /var/folders/tz/bzpxrq3s5pq07q_tx0q6gnkc0000gn/T/ipykernel_30314/596143333.py:9: FutureWarning: Downcasting behavior in `replace` is deprecated and will be removed in a future version. To retain the old behavior, explicitly call `result.infer_objects(copy=False)`. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
   df.replace('.', np.nan, inplace=True)
 /var/folders/tz/bzpxrq3s5pq07q_tx0q6gnkc0000gn/T/ipykernel_30314/596143333.py:18: FutureWarning: A value is trying to be set on a copy of a DataFrame or Series through chained assignment using an inplace method.
