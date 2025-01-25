@@ -1,5 +1,2 @@
-VO STREAMLIT CODE DO fast API ka ----smjh nhi  raha 
-
-or high value ka reason hai - If the forecasted values are too high, it typically indicates that the ARIMA model is not fitting the data well. 
-
-es liyai dushra models ka bhejha tha 
+send something which do fit 
+plzzz simple model hi ho bus 
