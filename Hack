@@ -1,3 +1,6 @@
+or chat mat likho prompt do jo karna hai . mereko idea nhi hai and mein ek hi chat mein kar raha hu sab tho koi problem hai nahi or error aayega tab batana ho jayega shai 
+
+
 import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
