@@ -1,3 +1,13 @@
 what is "importance" in graph?
  vese mene clenaing bola tha
 
+
+
+write promt do time series modelling for this
+Prediction and Forecast:
+• Select and justify appropriate algorithms for prediction.
+• Implement feature engineering techniques to improve model performance.
+• Solution should take account Seasonality, Trends and Stationary effect for forecast.
+• Develop at least two different models.
+• Evaluate and compare model performance using relevant metrics.
+• Identify the most important features contributing model.
