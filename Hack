@@ -1,1 +1,157 @@
+Below are minimal code snippets showing how you can:
 
+Read the Excel dataset,
+Store it into a SQLite DB (ETL),
+Train a forecasting model (example: Prophet) in a Jupyter notebook,
+Expose the model via FastAPI, and
+Build a simple Streamlit UI.
+All explanations are kept to a minimum. Adjust file paths, column names, or model parameters as needed.
+
+1) etl.py (Load Excel into SQLite)
+python
+Copy
+Edit
+import pandas as pd
+import sqlite3
+
+def load_excel_to_sqlite(excel_file, db_file="drug_forecast.db"):
+    df = pd.read_excel(excel_file, parse_dates=["Date"])
+    conn = sqlite3.connect(db_file)
+    df.to_sql("drug_data", conn, if_exists="replace", index=False)
+    conn.close()
+
+if __name__ == "__main__":
+    load_excel_to_sqlite("drug_data.xlsx")
+2) modeling.ipynb (Train Forecast Model with Prophet)
+python
+Copy
+Edit
+import pandas as pd
+import sqlite3
+from prophet import Prophet
+import numpy as np
+
+# Read from DB
+conn = sqlite3.connect("drug_forecast.db")
+df = pd.read_sql_query("SELECT * FROM drug_data", conn)
+conn.close()
+
+# Basic cleaning
+df["Demand"] = pd.to_numeric(df["Demand"], errors="coerce")
+df["Demand"] = df["Demand"].fillna(method="ffill")
+df = df.dropna(subset=["Demand"])
+df = df.sort_values("Date")
+
+# Create a column for sentiment (example)
+from textblob import TextBlob
+
+def sentiment_score(text):
+    return TextBlob(str(text)).sentiment.polarity
+
+df["combined_text"] = (
+    df["Event"].fillna("") + " " + 
+    df["Market_News"].fillna("") + " " + 
+    df["Press_Release"].fillna("")
+)
+df["text_sentiment"] = df["combined_text"].apply(sentiment_score)
+
+# Prophet with extra regressor
+df_prophet = df[["Date", "Demand", "text_sentiment"]].copy()
+df_prophet.columns = ["ds", "y", "sentiment"]
+
+m = Prophet()
+m.add_regressor("sentiment")
+
+# Train/test split
+split_idx = int(len(df_prophet)*0.8)
+train_df = df_prophet.iloc[:split_idx]
+test_df = df_prophet.iloc[split_idx:]
+
+m.fit(train_df)
+
+future = m.make_future_dataframe(periods=len(test_df))
+future["sentiment"] = test_df["sentiment"].values
+forecast = m.predict(future)
+
+# Evaluate
+from sklearn.metrics import mean_absolute_error
+mae = mean_absolute_error(test_df["y"], forecast["yhat"].tail(len(test_df)))
+print("MAE:", mae)
+
+# Save model
+import joblib
+joblib.dump(m, "prophet_model.joblib")
+3) main.py (FastAPI for Serving Forecast)
+python
+Copy
+Edit
+from fastapi import FastAPI
+from pydantic import BaseModel
+import sqlite3
+import pandas as pd
+import joblib
+import datetime
+
+app = FastAPI()
+model = joblib.load("prophet_model.joblib")
+
+class ForecastRequest(BaseModel):
+    periods: int
+
+@app.post("/forecast")
+def forecast_demand(req: ForecastRequest):
+    # Load latest data
+    conn = sqlite3.connect("drug_forecast.db")
+    df = pd.read_sql_query("SELECT * FROM drug_data", conn)
+    conn.close()
+    
+    # Minimal re-processing
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df.sort_values("Date")
+    df["Demand"] = pd.to_numeric(df["Demand"], errors="coerce").fillna(method="ffill")
+    df["combined_text"] = (df["Event"].fillna("") + " " + df["Market_News"].fillna("") + " " + df["Press_Release"].fillna(""))
+    
+    from textblob import TextBlob
+    df["text_sentiment"] = df["combined_text"].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
+    
+    # Prepare future dataframe
+    df_prophet = df[["Date", "Demand", "text_sentiment"]]
+    df_prophet.columns = ["ds", "y", "sentiment"]
+    
+    last_date = df_prophet["ds"].max()
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=req.periods)
+    future_df = pd.DataFrame({"ds": future_dates, "sentiment": [0]*req.periods})
+    
+    full_df = pd.concat([df_prophet[["ds","y","sentiment"]], future_df], ignore_index=True)
+    forecast = model.predict(full_df)
+    
+    results = forecast.tail(req.periods)[["ds","yhat"]].to_dict("records")
+    return {"forecast": results}
+4) streamlit_app.py (Simple Streamlit Frontend)
+python
+Copy
+Edit
+import streamlit as st
+import requests
+import pandas as pd
+from datetime import datetime
+
+st.title("Drug Demand Forecast App")
+
+periods = st.number_input("Forecast Days", min_value=1, max_value=60, value=7)
+
+if st.button("Get Forecast"):
+    resp = requests.post("http://localhost:8000/forecast", json={"periods": periods})
+    if resp.status_code == 200:
+        data = resp.json()
+        df_forecast = pd.DataFrame(data["forecast"])
+        st.write(df_forecast)
+        st.line_chart(df_forecast.set_index("ds")["yhat"])
+    else:
+        st.error("Error fetching data")
+Usage Steps
+Run etl.py to load your Excel into drug_forecast.db.
+Open modeling.ipynb and run all cells to train and save the Prophet model.
+Start FastAPI: uvicorn main:app --reload
+Start Streamlit: streamlit run streamlit_app.py
+Access Streamlit UI, enter forecast days, see results.
