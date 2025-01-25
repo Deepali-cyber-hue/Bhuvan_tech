@@ -1,1 +1,1 @@
-write prompt- give code for fastAPI for this previous model 
+write prompt- give code for fastAPI for this previous model ARIMA
