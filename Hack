@@ -1,1 +1,103 @@
-write that the demand forcasted value is coming too high what to do
+write that the demand forcasted value is coming too high what to do...............YAI Krta niche jo bola hai woh karo tab tak 
+YAI TRY KARNA XBOOST AND  PROPHET - YAI AAGR R^2 VALUE THIK DE RAHE HAI THO YAI USE KARNA - (R^2 =1 MEANS 100% DATA VARIABLILITY SMJHA RAHA HAI) THO USKAI HISAB SAI DHEK LENA 
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
+from prophet import Prophet
+import matplotlib.pyplot as plt
+
+# Step 1: Load the cleaned dataset
+file_path = 'cleaned_drug_demand_data.csv'  # Update with your file path
+df_cleaned = pd.read_csv(file_path)
+
+# Ensure the data has a proper time column
+df_cleaned['Date'] = pd.date_range(start='2020-01-01', periods=len(df_cleaned), freq='D')
+df_cleaned.set_index('Date', inplace=True)
+
+# Time-series demand column
+df_time_series = df_cleaned[['Demand']].copy()
+
+# Step 2: Log Transformation to Stabilize Variance
+df_time_series['Log_Demand'] = np.log1p(df_time_series['Demand'])
+
+# Step 3: Decomposition to Assess Seasonality and Trend
+from statsmodels.tsa.seasonal import seasonal_decompose
+decomposition = seasonal_decompose(df_time_series['Log_Demand'], model='additive', period=365)
+decomposition.plot()
+plt.show()
+
+# Step 4: Model 1 - Prophet for Time-Series Forecasting
+prophet_data = df_time_series.reset_index().rename(columns={'Date': 'ds', 'Demand': 'y'})
+model_prophet = Prophet(yearly_seasonality=True, daily_seasonality=False)
+model_prophet.fit(prophet_data)
+
+# Create future dataframe
+future_dates = model_prophet.make_future_dataframe(periods=30)
+forecast_prophet = model_prophet.predict(future_dates)
+
+# Step 5: Model 2 - XGBoost for Feature-Based Forecasting
+# Adding time-based features for machine learning
+df_cleaned['Day'] = df_cleaned.index.day
+df_cleaned['Month'] = df_cleaned.index.month
+df_cleaned['Year'] = df_cleaned.index.year
+df_cleaned['WeekOfYear'] = df_cleaned.index.isocalendar().week
+df_cleaned['DayOfWeek'] = df_cleaned.index.dayofweek
+
+X = df_cleaned.drop(columns=['Demand'])
+y = df_cleaned['Demand']
+
+# Train-test split (80-20 split)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
+
+# Fit XGBoost model
+model_xgb = XGBRegressor(n_estimators=100, learning_rate=0.1, random_state=42)
+model_xgb.fit(X_train, y_train)
+forecast_xgb = model_xgb.predict(X_test)
+
+# Step 6: Evaluate Models
+# Prophet Metrics (last 30 days)
+test_actual = df_time_series.iloc[-30:]['Demand']
+prophet_forecast = forecast_prophet.iloc[-30:]['yhat']
+
+metrics_prophet = {
+    'RMSE': np.sqrt(mean_squared_error(test_actual, prophet_forecast)),
+    'MAE': mean_absolute_error(test_actual, prophet_forecast),
+    'R^2': r2_score(test_actual, prophet_forecast)
+}
+
+# XGBoost Metrics
+metrics_xgb = {
+    'RMSE': np.sqrt(mean_squared_error(y_test, forecast_xgb)),
+    'MAE': mean_absolute_error(y_test, forecast_xgb),
+    'R^2': r2_score(y_test, forecast_xgb)
+}
+
+# Step 7: Visualization
+# Prophet Forecast
+model_prophet.plot(forecast_prophet)
+plt.title('Prophet Forecast')
+plt.show()
+
+# XGBoost Feature Importance
+importances = pd.DataFrame({'Feature': X_train.columns, 'Importance': model_xgb.feature_importances_})
+importances = importances.sort_values(by='Importance', ascending=False)
+
+plt.figure(figsize=(10, 6))
+plt.barh(importances['Feature'][:10], importances['Importance'][:10])
+plt.title('Top 10 Feature Importances (XGBoost)')
+plt.gca().invert_yaxis()
+plt.show()
+
+# Step 8: Compare Models
+metrics_summary = pd.DataFrame({
+    'Model': ['Prophet', 'XGBoost'],
+    'RMSE': [metrics_prophet['RMSE'], metrics_xgb['RMSE']],
+    'MAE': [metrics_prophet['MAE'], metrics_xgb['MAE']],
+    'R^2': [metrics_prophet['R^2'], metrics_xgb['R^2']]
+})
+
+print("Model Comparison Metrics:")
+print(metrics_summary)
