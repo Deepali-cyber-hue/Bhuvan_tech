@@ -1,2 +1,3 @@
 send something which do fit 
 plzzz simple model hi ho bus 
+and it's must to use time series model only
