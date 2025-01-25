@@ -1,3 +1,49 @@
-/var/folders/tz/bzpxrq3s5pq07q_tx0q6gnkc0000gn/T/ipykernel_30314/1854350088.py:8: FutureWarning: Downcasting behavior in `replace` is deprecated and will be removed in a future version. To retain the old behavior, explicitly call `result.infer_objects(copy=False)`. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
-  df = df.replace('.', np.nan)  # Do not use inplace to avoid chaining warnings
--- showing this error
+import pandas as pd
+import numpy as np
+
+# Load the dataset
+df = pd.read_excel('drug_demand_forecasting.xlsx', sheet_name='Sheet1')
+
+# Step 1: Replace '.' with NaN and fix downcasting warning
+df = df.replace('.', np.nan)
+df = df.infer_objects()  # Explicitly infer object types to ensure compatibility
+
+# Step 2: Convert numeric columns to float
+numeric_columns = ['Demand', 'Weekday', 'Prescription_Volume']
+df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
+
+# Step 3: Handle Missing Values for Numeric Columns
+# Fill missing numeric values with median
+for col in numeric_columns:
+    df[col] = df[col].fillna(df[col].median())
+
+# Step 4: Handle Missing Values for Categorical Columns
+categorical_columns = ['Season', 'Month', 'Drug_Type']
+for col in categorical_columns:
+    df[col] = df[col].fillna(df[col].mode()[0])
+
+# Step 5: Process the 'Age' Column
+# Convert age ranges to numeric midpoints
+def process_age(value):
+    if isinstance(value, str) and '-' in value:  # Handle ranges like '26-35'
+        start, end = map(int, value.split('-'))
+        return (start + end) / 2
+    elif value == '60+':  # Handle '60+'
+        return 65  # Assume 65 as a midpoint
+    else:
+        return value  # Leave numeric values as-is
+
+df['Age'] = df['Age'].apply(process_age)
+
+# Step 6: Encode Categorical Variables
+# One-hot encode categorical features
+df_encoded = pd.get_dummies(df, columns=['Region', 'Category', 'Drug_Type', 'Season', 'Month', 'age_group'], drop_first=True)
+
+# Step 7: Drop Irrelevant Columns
+# Remove columns that won't contribute to numerical modeling
+df_encoded = df_encoded.drop(columns=['Date', 'Drug', 'Sides', 'Event', 'Market_News', 'Press_Release'])
+
+# Step 8: Save Cleaned Data
+df_encoded.to_csv('cleaned_drug_demand_data.csv', index=False)
+
+print("Data cleaning complete. Cleaned data saved as 'cleaned_drug_demand_data.csv'.")
