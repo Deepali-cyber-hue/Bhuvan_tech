@@ -1,41 +1,13 @@
-import pandas as pd
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-import matplotlib.pyplot as plt
+do upload the clean data to chat gpt plz save krke
 
-# Step 1: Load the Excel file
-file_path = '/Users/deepali/cleaned_data.xlsx'  # Update with your actual file path
-df_cleaned = pd.read_excel(file_path)
+and write prompt 
+Prediction and Forecast:
+• Select and justify appropriate algorithms for prediction.
+• Implement feature engineering techniques to improve model performance.
+• Solution should take account Seasonality, Trends and Stationary effect for forecast.
+• Develop at least two different models.
+• Evaluate and compare model performance using relevant metrics.
+• Identify the most important features contributing model.
 
-# Step 2: Ensure the data has a proper time column
-# Adding a simulated 'Date' column for time-series purposes (if no real 'Date' column exists)
-df_cleaned['Date'] = pd.date_range(start='2020-01-01', periods=len(df_cleaned), freq='D')
-df_time_series = df_cleaned[['Date', 'Demand']].sort_values(by='Date')
+and write that create a jupyternotebook code so that it can deploy in fast api later -- do modelling in this way
 
-# Step 3: Set the 'Date' column as the index for time series analysis
-df_time_series.set_index('Date', inplace=True)
-
-# Step 4: Fit the Exponential Smoothing model
-model = ExponentialSmoothing(
-    df_time_series['Demand'], 
-    trend='add', 
-    seasonal='add', 
-    seasonal_periods=365  # Assuming yearly seasonality
-)
-model_fit = model.fit()
-
-# Step 5: Forecast the next 30 days
-forecast = model_fit.forecast(30)
-
-# Step 6: Plot the actual data and forecasted values
-plt.figure(figsize=(12, 6))
-plt.plot(df_time_series['Demand'], label='Actual Demand', color='blue')
-plt.plot(forecast, label='Forecasted Demand', linestyle='--', color='orange')
-plt.title('Drug Demand Forecasting (Exponential Smoothing)')
-plt.xlabel('Date')
-plt.ylabel('Demand')
-plt.legend()
-plt.show()
-
-# Step 7: Print the last 10 forecasted values
-print("Last 10 Forecasted Values:")
-print(forecast.tail(10))
